@@ -21,12 +21,29 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "socket.h"
+#include "wizchip_conf.h"
+#include "w5300.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+#define _USE_W5300_OPTIMIZE				1
 
+#define W5300_BANK_ADDR                 ((uint32_t)0x60000000)//((uint32_t)0x64000000)
+#define _W5300_DATA(p)                  (*(volatile unsigned short*) (W5300_BANK_ADDR + (p<<1)))
+
+
+#define RESET_W5300_GPIO_Port			GPIOF
+#define RESET_W5300_Pin					GPIO_PIN_7
+
+#define true					1
+#define false					0
+
+#define SOCK_TCPS       0
+#define SOCK_UDPS       1
+#define PORT_TCPS		5000
+#define PORT_UDPS       3000
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -48,6 +65,21 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 SRAM_HandleTypeDef hsram1;
 
 /* USER CODE BEGIN PV */
+uint8_t wiznet_memsize[2][8] = {{8,8,8,8,8,8,8,8}, {8,8,8,8,8,8,8,8}};
+
+#define ETH_MAX_BUF_SIZE		2048
+
+uint8_t ethBuf0[ETH_MAX_BUF_SIZE];
+
+
+wiz_NetInfo gWIZNETINFO = {
+		.mac = {0x00, 0x08, 0xdc, 0, 0, 0},
+		.ip = {192, 168, 15, 111},
+		.sn = {255, 255, 255, 0},
+		.gw = {192, 168, 15, 1},
+		.dns = {0, 0, 0, 0},
+		.dhcp = NETINFO_STATIC
+};
 
 /* USER CODE END PV */
 
@@ -61,7 +93,83 @@ static void MX_USART1_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_FMC_Init(void);
 /* USER CODE BEGIN PFP */
+uint8_t rxData[2];
 
+int _write(int fd, char *str, int len)
+{
+	for(int i=0; i<len; i++)
+	{
+		HAL_UART_Transmit(&huart1, (uint8_t *)&str[i], 1, 0xFFFF);
+	}
+	return len;
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+
+    /*
+        This will be called once data is received successfully,
+        via interrupts.
+    */
+
+     /*
+       loop back received data
+     */
+     HAL_UART_Receive_IT(&huart1, rxData, 1);
+     HAL_UART_Transmit(&huart1, rxData, 1, 1000);
+}
+
+void Reset_W5300()
+{
+	HAL_GPIO_WritePin(RESET_W5300_GPIO_Port, RESET_W5300_Pin, GPIO_PIN_RESET);
+	HAL_Delay(10);
+	HAL_GPIO_WritePin(RESET_W5300_GPIO_Port, RESET_W5300_Pin, GPIO_PIN_SET);
+	HAL_Delay(100);
+}
+
+void W5300_write(uint32_t addr, iodata_t wd)
+{
+	_W5300_DATA(addr) = wd;
+}
+
+iodata_t W5300_read(uint32_t addr)
+{
+	return _W5300_DATA(addr);
+}
+void W5300CsEnable(void)
+{
+
+}
+void W5300CsDisable(void)
+{
+
+}
+void print_network_information(void)
+{
+    wizchip_getnetinfo(&gWIZNETINFO);
+    printf("Mac address: %02x:%02x:%02x:%02x:%02x:%02x\n\r",gWIZNETINFO.mac[0],gWIZNETINFO.mac[1],gWIZNETINFO.mac[2],gWIZNETINFO.mac[3],gWIZNETINFO.mac[4],gWIZNETINFO.mac[5]);
+    printf("IP address : %d.%d.%d.%d\n\r",gWIZNETINFO.ip[0],gWIZNETINFO.ip[1],gWIZNETINFO.ip[2],gWIZNETINFO.ip[3]);
+    printf("SM Mask    : %d.%d.%d.%d\n\r",gWIZNETINFO.sn[0],gWIZNETINFO.sn[1],gWIZNETINFO.sn[2],gWIZNETINFO.sn[3]);
+    printf("Gate way   : %d.%d.%d.%d\n\r",gWIZNETINFO.gw[0],gWIZNETINFO.gw[1],gWIZNETINFO.gw[2],gWIZNETINFO.gw[3]);
+    printf("DNS Server : %d.%d.%d.%d\n\r",gWIZNETINFO.dns[0],gWIZNETINFO.dns[1],gWIZNETINFO.dns[2],gWIZNETINFO.dns[3]);
+}
+
+void _InitW5300(void)
+{
+	unsigned int tmpaddr[4];
+
+	Reset_W5300();
+	reg_wizchip_bus_cbfunc(W5300_read, W5300_write);
+	reg_wizchip_cs_cbfunc(W5300CsEnable, W5300CsDisable);
+	printf("getMR() = %04X\r\n", getMR());
+
+	if (ctlwizchip(CW_INIT_WIZCHIP, (void*)wiznet_memsize) == -1)
+	{
+		printf("W5300 memory initialization failed\r\n");
+	}
+
+	ctlnetwork(CN_SET_NETINFO, (void *)&gWIZNETINFO);
+	print_network_information();
+}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -106,13 +214,16 @@ int main(void)
   MX_USB_OTG_FS_PCD_Init();
   MX_FMC_Init();
   /* USER CODE BEGIN 2 */
-
+  printf("Hello! W5300 BUS loopback System \r\n");
+  HAL_UART_Receive_IT(&huart1, rxData, 1);
+  _InitW5300();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  loopback_tcps(0, ethBuf0, 3000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -389,7 +500,7 @@ static void MX_FMC_Init(void)
   hsram1.Init.BurstAccessMode = FMC_BURST_ACCESS_MODE_DISABLE;
   hsram1.Init.WaitSignalPolarity = FMC_WAIT_SIGNAL_POLARITY_LOW;
   hsram1.Init.WaitSignalActive = FMC_WAIT_TIMING_BEFORE_WS;
-  hsram1.Init.WriteOperation = FMC_WRITE_OPERATION_DISABLE;
+  hsram1.Init.WriteOperation = FMC_WRITE_OPERATION_ENABLE;
   hsram1.Init.WaitSignal = FMC_WAIT_SIGNAL_DISABLE;
   hsram1.Init.ExtendedMode = FMC_EXTENDED_MODE_DISABLE;
   hsram1.Init.AsynchronousWait = FMC_ASYNCHRONOUS_WAIT_DISABLE;
@@ -439,6 +550,9 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
@@ -452,6 +566,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(USER_BUTTON_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PF7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
   /*Configure GPIO pin : UCPD_FLT_Pin */
   GPIO_InitStruct.Pin = UCPD_FLT_Pin;

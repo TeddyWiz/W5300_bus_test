@@ -1,3 +1,9 @@
 [submodule "W5300_BUS_Test/Drivers/ioLibrary_Driver"]
 	path = W5300_BUS_Test/Drivers/ioLibrary_Driver
 	url = https://github.com/Wiznet/ioLibrary_Driver.git
+[submodule "L496_W5300_bus/Drivers/ioLibrary_Driver"]
+	path = L496_W5300_bus/Drivers/ioLibrary_Driver
+	url = https://github.com/Wiznet/ioLibrary_Driver.git
+[submodule "F429_W5300_BUS/Drivers/ioLibrary_Driver"]
+	path = F429_W5300_BUS/Drivers/ioLibrary_Driver
+	url = https://github.com/Wiznet/ioLibrary_Driver.git

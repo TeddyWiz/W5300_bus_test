@@ -1,0 +1,6 @@
+eclipse.preferences.version=1
+environment/project/com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.debug.1017887398/PROJECT/delimiter=;
+environment/project/com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.debug.1017887398/PROJECT/operation=append
+environment/project/com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.debug.1017887398/PROJECT/value=${ProjDirPath}
+environment/project/com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.debug.1017887398/append=true
+environment/project/com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.debug.1017887398/appendContributed=true
